@@ -70,7 +70,7 @@ async def classify_texts(request: InputTexts):
 @app.get("/model-info", summary="Информация о модели", description="Возвращает детальную информацию о загруженной модели: название, максимальную длину, соответствие ID и меток")
 async def get_model_info():
     """ Получение более подробной информации о модели"""
-    
+
     return {
         "model_name": rubert_model.model_id,
         "max_length": rubert_model.max_length,
