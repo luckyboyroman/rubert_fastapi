@@ -15,8 +15,8 @@ os.environ['HF_HOME'] = HF_HOME
 # Загружаем модель и токенизатор
 MODEL_ID = "Kostya165/rubert_tiny2_russian_emotion_sentiment"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-model     = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
-model.eval()
+model12    = AutoModelForSequenceClassification.from_pretrained(MODEL_ID)
+model12.eval()
 
 texts = [
     "Сегодня отличный день!",
@@ -26,10 +26,10 @@ texts = [
 # Токенизация
 enc = tokenizer(texts, padding=True, truncation=True, max_length=128, return_tensors="pt")
 with torch.no_grad():
-    logits = model(**enc).logits
+    logits = model12(**enc).logits
     preds = logits.argmax(dim=-1).tolist()
 
 # Преобразуем ID обратно в метки
-id2label = model.config.id2label
+id2label = model12.config.id2label
 labels = [id2label[p] for p in preds]
 print(labels)  # например: ['positive', 'aggression']
