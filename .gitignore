@@ -2,3 +2,5 @@
 weights/
 .vscode/
 __pycache__/
+rubert_api
+rubert_api.tar
