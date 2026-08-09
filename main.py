@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Body, Request, Response
 from sentence_transformers import SentenceTransformer, util
 from models.rubert_model import RubertModel
 from models.pydantic_models import InputTexts
+from models.database import setup_database, SessionDep, RequestLog, new_session
+from contextlib import asynccontextmanager
 import logging
 import time
 
@@ -12,8 +14,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI()                 # FastAPI приложение
+# Lifespan для инициализации БД при старте
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Инициализация базы данных логов...")
+    await setup_database()
+    yield
+    logger.info("Завершение работы приложения")
+
+app = FastAPI(lifespan=lifespan)                 # FastAPI приложение
 rubert_model = RubertModel()    # Модель ruBERT для классификации текстов
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -29,6 +40,7 @@ async def log_requests(request: Request, call_next):
     
     try:
         response = await call_next(request)
+        status_code = response.status_code
         
         # Вычисляем время выполнения
         process_time = time.time() - start_time
@@ -42,6 +54,24 @@ async def log_requests(request: Request, call_next):
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}", exc_info=True)
         raise
+
+    finally:
+        try:
+            async with new_session() as session:
+                log_entry = RequestLog(
+                    method=method,
+                    path=path,
+                    headers=headers,
+                    status_code=status_code,
+                    process_time=round(process_time, 4),
+                )
+                session.add(log_entry)
+                await session.commit()
+                logger.info("Закомитили")
+        except Exception as db_err:
+            # КРИТИЧНО: Ошибка логирования не должна возвращать 500 пользователю
+            logger.error(f"Failed to save log to DB: {db_err}", exc_info=True)
+
 
 @app.get("/", summary="Главная страница", description="Главная страница, содержит информацию о загруженной модели")
 async def home():
@@ -79,3 +109,4 @@ async def get_model_info():
         "label2id": rubert_model.label2id,
         "device": str(rubert_model.device)
     }
+
